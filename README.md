@@ -4,6 +4,41 @@ ROSClaw MCP Server for Universal Robots — using **ur_rtde** (RTDE protocol, di
 
 Part of the [ROSClaw](https://github.com/ros-claw) Embodied Intelligence Operating System.
 
+## SDK Information
+
+| Property | Value |
+|----------|-------|
+| **SDK Name** | ur_rtde |
+| **SDK Version** | 1.0.0+ |
+| **Protocol** | RTDE (Real-Time Data Exchange) |
+| **Source Repository** | [gitlab.com/sdurobotics/ur_rtde](https://gitlab.com/sdurobotics/ur_rtde) |
+| **Documentation** | [ur_rtde Docs](https://sdurobotics.gitlab.io/ur_rtde/) |
+| **License** | MIT |
+| **Generated** | 2026-04-07 |
+
+## Hardware Specification
+
+| Specification | Value |
+|--------------|-------|
+| **Supported Robots** | UR3, UR5, UR10, UR16, UR20 |
+| **Controller Types** | CB3 Series, e-Series |
+| **Protocol** | RTDE over TCP |
+| **Robot Port** | 30004 (RTDE) |
+| **Dashboard Port** | 29999 |
+| **Gripper Port** | 63352 (Robotiq via UR Cap) |
+| **Max Joint Speed** | 3.14 rad/s |
+| **Max Tool Speed** | 3.0 m/s |
+| **Max Joint Acceleration** | 40 rad/s² |
+
+### PolyScope Compatibility
+
+| PolyScope Version | Compatibility | Notes |
+|-------------------|---------------|-------|
+| 5.6.0+ | ✅ Full | All features supported |
+| 3.x - 5.5.x | ✅ Compatible | Some dashboard features return "N/A" |
+| CB3 Series | ✅ Compatible | Tested on PolyScope 3.15.8 |
+| e-Series | ✅ Compatible | Recommended for best performance |
+
 ## Features
 
 | Category | Tools |
@@ -18,14 +53,9 @@ Part of the [ROSClaw](https://github.com/ros-claw) Embodied Intelligence Operati
 | I/O | `set_digital_output`, `set_speed_slider`, `set_analog_output`, `get_digital_io_state` |
 | State | `get_robot_state`, `get_tcp_pose`, `get_joint_positions`, `get_tcp_force` |
 | **Robotiq Gripper** | `connect_gripper`, `disconnect_gripper`, `gripper_activate`, `gripper_open`, `gripper_close`, `gripper_move`, `gripper_get_status` |
+| **SDK Info** | `get_sdk_info` |
 
-**MCP Resources**: `robot://status`, `robot://connection`
-
-## Hardware
-
-Universal Robots UR3/UR5/UR10/UR16/UR20 (CB3 and e-Series)
-Protocol: RTDE over TCP port 30004
-Robotiq Gripper: TCP port 63352 (via Robotiq_grippers UR Cap)
+**MCP Resources**: `robot://status`, `robot://connection`, `robot://sdk_info`
 
 ## Quick Start
 
@@ -53,7 +83,10 @@ Add to `claude_desktop_config.json`:
     "rosclaw-ur-rtde": {
       "command": "python",
       "args": ["/path/to/rosclaw-ur-rtde-mcp/src/ur_rtde_mcp_server.py"],
-      "transportType": "stdio"
+      "transportType": "stdio",
+      "description": "UR via RTDE with Gripper Support",
+      "sdk_version": "1.0.0+",
+      "sdk_source": "https://gitlab.com/sdurobotics/ur_rtde"
     }
   }
 }
@@ -102,14 +135,61 @@ move_joint_ik(
 
 **Use Case**: When you know the desired TCP position in Cartesian space but don't want to calculate joint angles manually.
 
-## Compatibility
+## Safety Information
 
-| PolyScope Version | Compatibility | Notes |
-|-------------------|---------------|-------|
-| 5.6.0+ | ✅ Full | All features supported |
-| 3.x - 5.5.x | ✅ Compatible | `get_serial_number` and `is_remote_control` return "N/A" |
-| CB3 Series | ✅ Compatible | Tested on PolyScope 3.15.8 |
-| e-Series | ✅ Compatible | Recommended for best performance |
+**WARNING:** This MCP server controls an industrial robot arm. Improper use can cause:
+- Serious injury or death
+- Equipment damage
+- Property damage
+
+### Safety Features
+
+| Feature | Description |
+|---------|-------------|
+| **Joint Velocity** | Max 3.14 rad/s enforced |
+| **Tool Velocity** | Max 3.0 m/s enforced |
+| **Joint Acceleration** | Max 40 rad/s² enforced |
+| **Protective Stop Check** | `check_safe_to_move()` blocks commands during stop |
+| **Emergency Stop** | Physical E-stop on pendant |
+
+### Safety Levels
+
+| Level | Color | Description | Example |
+|-------|-------|-------------|---------|
+| **CRITICAL** | 🔴 | Immediate danger | Collision, protective stop |
+| **HIGH** | 🟠 | Potential damage | Near joint limits |
+| **MEDIUM** | 🟡 | Caution needed | Force mode active |
+| **LOW** | 🟢 | Informational | Status check |
+
+### Emergency Procedures
+
+1. **Immediate Stop**: Press physical E-stop or call `stop_motion()`
+2. **Protective Stop**: Wait 5s, then call `unlock_protective_stop()`
+3. **Power Off**: Use `robot_power_control("power_off")` if needed
+
+## Error Handling
+
+### Error Codes
+
+| Code | Name | Severity | Description |
+|------|------|----------|-------------|
+| -1 | CONNECTION_FAILED | 🟠 error | RTDE connection failed |
+| -2 | TIMEOUT | 🟠 error | Command response timeout |
+| -3 | INVALID_PARAMETER | 🟠 error | Invalid joint angle or pose |
+| -4 | SAFETY_VIOLATION | 🔴 critical | Exceeds velocity/acceleration limits |
+| -5 | PROTECTIVE_STOP | 🔴 critical | Robot in protective stop |
+| -6 | NOT_INITIALIZED | 🟠 error | Not connected to robot |
+
+### Troubleshooting
+
+| Issue | Possible Cause | Solution |
+|-------|---------------|----------|
+| Connection failed | Wrong IP | Verify robot IP address |
+| Connection failed | Network issue | Check Ethernet cable |
+| Command rejected | Protective stop | Unlock protective stop |
+| Command rejected | Not in remote | Enable remote control mode |
+| Gripper not responding | UR Cap not installed | Install Robotiq_grippers cap |
+| Slow motion | Speed slider | Check speed slider setting |
 
 ## Hardware Requirements
 
@@ -118,23 +198,15 @@ move_joint_ik(
 - **Optional - Robotiq Gripper**: TCP port 63352 (via Robotiq_grippers UR Cap)
 - **Optional - F/T Sensor**: Required for `force_mode` and `zero_ft_sensor`
 
-| Position | Description |
-|----------|-------------|
-| 0 | Fully open |
-| 255 | Fully closed |
-| 128 | Halfway |
+### Gripper Position
+
+| Position | Value | Description |
+|----------|-------|-------------|
+| 0 | Fully open | Fingers at maximum spread |
+| 255 | Fully closed | Fingers fully closed |
+| 128 | Halfway | 50% closure |
 
 Use `gripper_move(position=64, speed=255, force=100)` for precise positioning.
-
-## Safety
-
-- All motion commands validate against UR hardware limits before sending:
-  - Joint velocity: max 3.14 rad/s
-  - Tool velocity: max 3.0 m/s
-  - Joint acceleration: max 40 rad/s²
-- `check_safe_to_move()` blocks commands during protective/emergency stop
-- Protective stop can be unlocked via `unlock_protective_stop()` (after 5 s)
-- Gripper auto-calibration opens/closes to detect limits (call after `activate()`)
 
 ## Architecture
 
@@ -209,12 +281,21 @@ System tests generate timestamped reports:
 - `ur5_system_test_report_YYYYMMDD_HHMMSS.txt`
 - `ur5_full_test_report_YYYYMMDD_HHMMSS.txt`
 
+## References
+
+- [ur_rtde GitLab](https://gitlab.com/sdurobotics/ur_rtde)
+- [ur_rtde Documentation](https://sdurobotics.gitlab.io/ur_rtde/)
+- [Universal Robots RTDE Guide](https://www.universal-robots.com/articles/ur/interface-communication/real-time-data-exchange-rtde-guide/)
+- [Robotiq Gripper Manual](https://robotiq.com/support/2f-85-2f-140)
+- [MCP Protocol](https://modelcontextprotocol.io/)
+
 ## Changelog
 
 ### v0.2.0 (2025-03-25)
 - ✨ **NEW**: Added `moveJ_IK` method to `URRTDEBridge` for Cartesian pose control via IK
 - ✨ **NEW**: Added comprehensive system tests for hardware validation
 - ✨ **NEW**: Added diagnostic tools for troubleshooting
+- ✨ **NEW**: Added SDK metadata and `get_sdk_info()` tool
 - 🐛 **FIX**: `get_robot_info` now handles PolyScope < 5.6.0 gracefully
 - 📚 **DOC**: Updated README with compatibility matrix and new features
 
@@ -224,9 +305,21 @@ System tests generate timestamped reports:
 - Robotiq gripper support
 - Thread-safe bridge implementation
 
-## Related ROSClaw Servers
+## License
 
-- [rosclaw-ur-ros2-mcp](https://github.com/ros-claw/rosclaw-ur-ros2-mcp) — UR5 via ROS2/MoveIt
+MIT License — See [LICENSE](LICENSE)
+
+The underlying ur_rtde library is also MIT licensed.
+
+## Part of ROSClaw
+
 - [rosclaw-g1-dds-mcp](https://github.com/ros-claw/rosclaw-g1-dds-mcp) — Unitree G1 humanoid
+- [rosclaw-ur-ros2-mcp](https://github.com/ros-claw/rosclaw-ur-ros2-mcp) — UR5 via ROS2/MoveIt
 - [rosclaw-gimbal-mcp](https://github.com/ros-claw/rosclaw-gimbal-mcp) — GCU gimbal
-- [rosclaw-vision-mcp](https://github.com/ros-claw/rosclaw-vision-mcp) — RealSense RGB-D
+- [rosclaw-ur-rtde-mcp](https://github.com/ros-claw/rosclaw-ur-rtde-mcp) — UR via RTDE (this repo)
+
+---
+
+**Generated by ROSClaw SDK-to-MCP Transformer**
+
+*SDK Version: ur_rtde 1.0.0+ | Protocol: RTDE (TCP) | With Robotiq Gripper Support*

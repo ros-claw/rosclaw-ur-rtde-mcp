@@ -4,8 +4,36 @@ ROSClaw UR-RTDE MCP Server
 Universal Robots arm MCP Server using ur_rtde (RTDE protocol, direct TCP).
 Part of the ROSClaw Embodied Intelligence Operating System.
 
-Hardware: Universal Robots UR3/UR5/UR10/UR16/UR20 (CB3 and e-Series)
-Protocol: RTDE (Real-Time Data Exchange) over TCP port 30004
+SDK Information:
+    Name: ur_rtde
+    Version: 1.0.0+
+    Protocol: RTDE (Real-Time Data Exchange) over TCP
+    Source: https://gitlab.com/sdurobotics/ur_rtde
+    Documentation: https://sdurobotics.gitlab.io/ur_rtde/
+    License: MIT
+
+Hardware: Universal Robots UR3/UR5/UR10/UR16/UR20
+    Controller: CB3 Series, e-Series
+    RTDE Port: 30004
+    Dashboard Port: 29999
+    Gripper Port: 63352 (Robotiq via UR Cap)
+    Max Joint Speed: 3.14 rad/s
+    Max Tool Speed: 3.0 m/s
+
+Features:
+- Direct TCP connection (no ROS2 required)
+- Full robot control: joints, pose, force mode
+- Robotiq gripper support
+- Real-time state monitoring
+- Thread-safe implementation
+
+Safety Notice:
+    This server controls an industrial robot. Always ensure:
+    - Emergency stop procedures are in place
+    - Workspace is clear of obstacles
+    - Speed limits are appropriate for task
+
+Generated: 2026-04-07
 """
 
 from __future__ import annotations
@@ -23,6 +51,20 @@ from ur_rtde_bridge import (
     JOINT_VEL_MAX, JOINT_ACC_MAX, TOOL_VEL_MAX, TOOL_ACC_MAX,
     SERVO_LOOKAHEAD_MIN, SERVO_LOOKAHEAD_MAX, SERVO_GAIN_MIN, SERVO_GAIN_MAX,
 )
+
+# SDK Metadata
+SDK_METADATA = {
+    "name": "ur_rtde",
+    "version": "1.0.0+",
+    "protocol": "RTDE",
+    "source_url": "https://gitlab.com/sdurobotics/ur_rtde",
+    "doc_url": "https://sdurobotics.gitlab.io/ur_rtde/",
+    "license": "MIT",
+    "hardware_models": ["UR3", "UR5", "UR10", "UR16", "UR20"],
+    "controller_types": ["CB3 Series", "e-Series"],
+    "rtde_port": 30004,
+    "generated_at": "2026-04-07",
+}
 
 mcp = FastMCP("rosclaw-ur-rtde")
 _bridge: Optional[URRTDEBridge] = None
@@ -61,6 +103,18 @@ def disconnect_robot() -> str:
         return "Not connected."
     b.disconnect()
     return "Disconnected."
+
+
+@mcp.tool()
+def get_sdk_info() -> str:
+    """
+    Get SDK metadata and version information.
+
+    Returns:
+        JSON string with SDK metadata including version,
+        protocol details, and supported hardware.
+    """
+    return json.dumps(SDK_METADATA, indent=2)
 
 
 # --- Dashboard ---
@@ -576,6 +630,12 @@ def resource_connection() -> str:
         "hostname": b.hostname or "not set",
         "ur_rtde_available": _HAS_UR_RTDE,
     })
+
+
+@mcp.resource("robot://sdk_info")
+def resource_sdk_info() -> str:
+    """SDK metadata and protocol information."""
+    return json.dumps(SDK_METADATA, indent=2)
 
 
 def main() -> None:
