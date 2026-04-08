@@ -1,0 +1,34 @@
+{
+  "robot_id": "ur-rtde-mcp",
+  "robot_name": "Universal Robots (RTDE/TCP)",
+  "version": "1.0.0",
+  "description": "MCP server for Universal Robots via RTDE protocol (direct TCP)",
+  "author": "sdk_to_mcp_v2.0",
+  "generated_date": "2026-04-08",
+  "sdk": {
+    "name": "ur_rtde",
+    "version": "1.0.0+",
+    "protocol": "RTDE"
+  },
+  "hardware": {
+    "manufacturer": "Universal Robots",
+    "model": "UR3/UR5/UR10/UR16/UR20",
+    "dof": 6
+  },
+  "files": [
+    "src/ur_rtde_mcp_server.py",
+    "src/ur_rtde_bridge.py",
+    "src/robotiq_gripper.py",
+    "e_urdf.json",
+    "prompts/system.md",
+    "prompts/tools_usage.md",
+    "manifest.json",
+    "pyproject.toml",
+    "README.md"
+  ],
+  "mcp_server": {
+    "command": "python",
+    "args": ["src/ur_rtde_mcp_server.py"],
+    "transport": "stdio"
+  }
+}
